@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Array of sites to check
+websites=("panel.scalematrix.com" "scalematrix.com" "ddc-cabtech.com") 
+
+for website in "${websites[@]}"; do
+    echo "Checking SSL certificate for $website..."
+    
+    # Use OpenSSL to retrieve certificate information
+    output=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text)
+    
+    if [[ $output =~ "Certificate grade: A" ]]; then
+        echo "Certificate grade: A"
+    elif [[ $output =~ "Certificate grade: B" ]]; then
+        echo "Certificate grade: B"
+    elif [[ $output =~ "Certificate grade: C" ]]; then
+        echo "Certificate grade: C"
+    else
+        echo "Certificate grade: Unknown"
+    fi
+    
+    echo ""
+done
