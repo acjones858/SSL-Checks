@@ -1,0 +1,34 @@
+#!/bin/bash
+
+websites=("panel.scalematrix.com" "scalematrix.com" "ddc-cabtech.com") 
+
+for website in "${websites[@]}"; do
+    echo "Checking SSL certificate for $website..."
+
+    # Use OpenSSL to retrieve certificate information
+    output=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text)
+    
+    # Variables to store grade and additional criteria
+    grade=""
+    additional_criteria=""
+    
+    # Check for specific conditions and assign grades
+    if [[ $output =~ "Signature Algorithm: sha384WithRSAEncryption" ]]; then
+        grade="A+"
+        additional_criteria="Strong signature algorithm"
+    elif [[ $output =~ "Signature Algorithm: sha256WithRSAEncryption" ]]; then
+        grade="A"
+        additional_criteria="Good signature algorithm"
+    elif [[ $output =~ "Signature Algorithm: sha1WithRSAEncryption" ]]; then
+        grade="B"
+        additional_criteria="Weak signature algorithm"
+    else
+        grade="C"
+        additional_criteria="Unknown or unsupported signature algorithm"
+    fi
+    
+    # Display the result
+    echo "Certificate grade: $grade"
+    echo "Additional criteria: $additional_criteria"
+    echo ""
+done
