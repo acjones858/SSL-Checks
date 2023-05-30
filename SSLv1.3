@@ -1,12 +1,12 @@
 #!/bin/bash
 
-websites=("panel.scalematrix.com" "scalematrix.com" "ddc-cabtech.com")  # Add your desired websites here
+websites=("panel.scalematrix.com" "scalematrix.com" "ddc-cabtech.com") 
 
 for website in "${websites[@]}"; do
     echo "Checking SSL certificate for $website..."
 
     # Use OpenSSL to retrieve certificate information
-    output=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text)
+    output=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text -in /dev/stdin)
     
     # Variables to store grade and additional criteria
     grade=""
@@ -28,6 +28,7 @@ for website in "${websites[@]}"; do
     else
         grade="C"
         additional_criteria="Unknown or unsupported signature algorithm"
+    fi
     
     # Display the result
     echo "Certificate grade: $grade"
