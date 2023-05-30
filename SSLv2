@@ -1,1 +1,36 @@
+#!/bin/bash
+
+websites=("example.com" "google.com" "facebook.com")  # Add your desired websites here
+timeout_duration=60  # Timeout duration in seconds
+
+for website in "${websites[@]}"; do
+    echo "Checking SSL certificate for $website..."
+
+    # Send request to SSL Labs API and store the response in a temporary file
+    curl -s -o tmp.json --data "host=$website" https://api.ssllabs.com/api/v3/analyze
+    
+    # Wait for the grade to be available in the API response
+    for ((i=0; i<timeout_duration; i++)); do
+        grade=$(jq -r '.endpoints[0].grade' tmp.json 2>/dev/null)
+        
+        if [[ -n $grade ]]; then
+            break
+        fi
+        
+        sleep 1
+    done
+    
+    # Check if the grade is empty
+    if [[ -z $grade ]]; then
+        echo "Failed to retrieve the certificate grade within the timeout period."
+        echo "Certificate grade: Unknown"
+    else
+        echo "Certificate grade: $grade"
+    fi
+    
+    echo ""
+done
+
+# Clean up the temporary file
+rm tmp.json
 
