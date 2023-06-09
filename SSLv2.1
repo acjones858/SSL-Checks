@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Array of specific times in HH:MM format
+times=("02:30" "05:30" "08:30" "11:30" "14:30" "17:30" "20:30" "23:31")
+
+# Function to check if the current time is within 30 minutes before the specified times
+function should_run_script {
+  local current_time=$1
+  local time_to_check=$2
+  
+  local current_hour=${current_time:0:2}
+  local current_minute=${current_time:3:2}
+  
+  local check_hour=${time_to_check:0:2}
+  local check_minute=${time_to_check:3:2}
+  
+  if ((10#$current_hour == 10#$check_hour)); then
+    if ((10#$current_minute >= 30 && 10#$current_minute <= 59)); then
+      return 0
+    fi
+  elif ((10#$current_hour == (10#$check_hour + 1) % 24)); then
+    if ((10#$current_minute >= 0 && 10#$current_minute <= 29)); then
+      return 0
+    fi
+  fi
+  
+  return 1
+}
+
+# Function to get the signature algorithm of the SSL certificate
+function get_signature_algorithm {
+  local website=$1
+  local signature_algorithm=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text | grep "Signature Algorithm:")
+  echo "$signature_algorithm"
+}
+
+# Get the current time in HH:MM format
+current_time=$(date +%H:%M)
+
+# Iterate over the times array and check if the script should run
+for time in "${times[@]}"; do
+  if should_run_script "$current_time" "$time"; then
+    websites=("example.com" "google.com" "facebook.com")  # Add your desired websites here
+
+    for website in "${websites[@]}"; do
+      echo "Checking SSL certificate for $website..."
+
+      # Use OpenSSL to retrieve certificate information
+      signature_algorithm=$(get_signature_algorithm "$website")
+
+      # Check for specific conditions and assign grades
+      if [[ $signature_algorithm =~ "sha384WithRSAEncryption" ]]; then
+        grade="A"
+        color_code="\033[92m"  # Light green
+      elif [[ $signature_algorithm =~ "sha256WithRSAEncryption" ]]; then
+        grade="B"
+        color_code="\033[94m"  # Light blue
+      else
+        grade="C"
+        color_code="\033[91m"  # Light red
+      fi
+
+      # Display the result with color
+      echo -e "Certificate grade: ${color_code}$grade\033[0m"
+      echo ""
+    done
+
+    break
+  fi
+done
