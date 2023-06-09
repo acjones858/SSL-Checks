@@ -1,0 +1,65 @@
+#!/bin/bash
+
+PING_TIMES=("12:00" "15:00" "18:00" "21:00")
+
+# Define color codes for formatting
+LIGHT_RED='\033[1;31m'
+LIGHT_GREEN='\033[1;32m'
+NC='\033[0m' # No color
+
+# Function to get the SSL certificate grade
+function get_ssl_certificate_grade {
+  local website=$1
+  local grade=""
+
+  # Use OpenSSL to retrieve certificate information
+  signature_algorithm=$(echo | openssl s_client -servername "$website" -connect "$website":443 2>/dev/null | openssl x509 -noout -text | awk '/Signature Algorithm:/ { print $3 }')
+
+  # Check for specific conditions and assign grades
+  if [[ $signature_algorithm == "sha384WithRSAEncryption" ]]; then
+    grade="A"
+  elif [[ $signature_algorithm == "sha256WithRSAEncryption" ]]; then
+    grade="B"
+  else
+    grade="C"
+  fi
+
+  echo "$grade"
+}
+
+echo "Wait until next scheduled time..."
+
+# Infinite loop
+while true; do
+  # Get the current time
+  current_time=$(date +"%H:%M")
+
+  # Check if the current time matches any of the ping times
+  if [[ " ${PING_TIMES[*]} " == *" $current_time "* ]]; then
+    # Display the ping timestamp
+    echo -e "Ping timestamp: $(date +"%m-%d %H:%M")"
+
+    websites=("example.com" "google.com" "facebook.com")  # Add your desired websites here
+
+    for website in "${websites[@]}"; do
+      echo "Checking SSL certificate for $website..."
+      
+      # Get the SSL certificate grade
+      grade=$(get_ssl_certificate_grade "$website")
+
+      # Display the result with color
+      if [[ $grade == "A" ]]; then
+        echo -e "Certificate grade: ${LIGHT_GREEN}$grade${NC}"
+      elif [[ $grade == "B" ]]; then
+        echo -e "Certificate grade: ${LIGHT_BLUE}$grade${NC}"
+      else
+        echo -e "Certificate grade: ${LIGHT_RED}$grade${NC}"
+      fi
+      
+      echo ""
+    done
+  fi
+
+  # Sleep for 1 minute before checking again
+  sleep 1m
+done
