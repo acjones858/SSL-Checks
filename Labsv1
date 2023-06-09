@@ -1,46 +1,58 @@
 #!/bin/bash
 
-# Function to check the status of the SSL Labs scan
-check_scan_status() {
-    scan_status=$(curl -s "https://api.ssllabs.com/api/v3/analyze/${1}?all=done" | jq -r '.status')
-    echo "$scan_status"
+# Initiate an SSL Labs scan for a given website and retrieve the scan ID
+initiate_ssl_scan() {
+  local website=$1
+  local scan_id=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website" | jq -r '.scanId')
+  echo "$scan_id"
 }
 
-# Function to initiate an SSL Labs scan for a given host
-initiate_scan() {
-    curl -s "https://api.ssllabs.com/api/v3/analyze?host=${1}&all=done" > /dev/null
+# Check the SSL Labs scan status for a given scan ID
+check_ssl_scan_status() {
+  local scan_id=$1
+  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$scan_id" | jq -r '.status')
+  echo "$status"
+}
+
+# Get the SSL Labs grade for a given website
+get_ssl_labs_grade() {
+  local website=$1
+  local scan_id=$(initiate_ssl_scan "$website")
+
+  local status
+  while true; do
+    status=$(check_ssl_scan_status "$scan_id")
+    if [[ "$status" == "IN_PROGRESS" ]]; then
+      sleep 10s
+    elif [[ "$status" == "READY" ]]; then
+      break
+    else
+      echo "Error: SSL Labs scan failed for $website"
+      return 1
+    fi
+  done
+
+  # Retrieve the grade from the results
+  local results=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$scan_id")
+  local grade=$(echo "$results" | jq -r '.endpoints[0].grade')
+
+  echo "DEBUG - Raw SSL Labs API response:"
+  echo "$results"
+
+  if [[ "$grade" == "null" ]]; then
+    echo "Error: SSL Labs grade not available for $website"
+    return 1
+  fi
+
+  echo "$grade"
 }
 
 # Read the file containing the list of websites
-hosts_file="ssl.txt"
+websites_file="websites.txt"
 
-while IFS= read -r host
+while IFS= read -r website
 do
-    echo "Scanning SSL certificate for $host"
-
-    initiate_scan "$host" # Initiate the scan
-
-    status=$(check_scan_status "$host") # Check the status of the scan
-
-    # Wait until the scan is completed
-    while [ "$status" != "READY" ]
-    do
-        if [ "$status" == "IN_PROGRESS" ]; then
-            echo "Scan in progress. Waiting..."
-        else
-            echo "Scan failed or encountered an error."
-            break
-        fi
-
-        sleep 10s # Wait for 10 seconds before checking the status again
-        status=$(check_scan_status "$host")
-    done
-
-    if [ "$status" == "READY" ]; then
-        echo "Scan completed for $host"
-        # Perform additional actions with the scan results if needed
-    fi
-
-    echo "-------------------------"
-
-done < "$hosts_file"
+  ssl_grade=$(get_ssl_labs_grade "$website")
+  echo "SSL Labs grade for $website: $ssl_grade"
+  echo "-------------------------"
+done < "$websites_file"
