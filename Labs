@@ -1,0 +1,44 @@
+#!/bin/bash
+
+websites=("example.com" "google.com" "facebook.com")  # Add your desired websites here
+
+# Function to check the status of SSL Labs scan
+function check_ssl_scan_status {
+  local scan_id=$1
+  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id" | jq -r '.status')
+
+  echo "$status"
+}
+
+# Function to get the SSL Labs grade for a website
+function get_ssl_labs_grade {
+  local website=$1
+  local scan_data=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website")
+  local scan_id=$(echo "$scan_data" | jq -r '.scanId')
+
+  # Wait until the scan is completed
+  while true; do
+    local status=$(check_ssl_scan_status "$scan_id")
+    if [[ $status == "READY" ]]; then
+      break
+    fi
+    sleep 10s
+  done
+
+  # Retrieve the grade
+  local grade=$(echo "$scan_data" | jq -r '.endpoints[0].grade')
+
+  echo "$grade"
+}
+
+# Loop through the websites and get SSL Labs grade
+for website in "${websites[@]}"; do
+  echo "Checking SSL certificate for $website..."
+
+  # Get the SSL Labs grade
+  grade=$(get_ssl_labs_grade "$website")
+
+  # Display the grade
+  echo "Certificate grade: $grade"
+  echo ""
+done
