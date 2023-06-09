@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Read websites from a text file (one website per line)
+websites_file="websites.txt"
+
+# Loop through the websites and check SSL certificate grade
+while IFS= read -r website; do
+  echo "Checking SSL certificate for $website..."
+
+  # Call the SSL Labs API and retrieve the grade
+  api_response=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website")
+  grade=$(echo "$api_response" | jq -r '.endpoints[0].grade')
+
+  # Print the grade or error message
+  if [[ "$grade" == "null" ]]; then
+    echo "Error: SSL Labs grade not available for $website"
+  else
+    echo "Certificate grade for $website: $grade"
+  fi
+
+  echo
+done < "$websites_file"
