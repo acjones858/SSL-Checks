@@ -1,58 +1,33 @@
 #!/bin/bash
 
-# Initiate an SSL Labs scan for a given website and retrieve the scan ID
-initiate_ssl_scan() {
-  local website=$1
-  local scan_id=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website" | jq -r '.scanId')
-  echo "$scan_id"
-}
+# Read each line from ssl.txt file
+while IFS= read -r domain; do
+  echo "Checking SSL grade for $domain..."
 
-# Check the SSL Labs scan status for a given scan ID
-check_ssl_scan_status() {
-  local scan_id=$1
-  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$scan_id" | jq -r '.status')
-  echo "$status"
-}
+  # Submit the domain to SSL Labs and get the analysis ID
+  response=$(curl -s -X POST --data "host=$domain" https://api.ssllabs.com/api/v3/analyze)
+  analysis_id=$(echo "$response" | jq -r '.analysisId')
 
-# Get the SSL Labs grade for a given website
-get_ssl_labs_grade() {
-  local website=$1
-  local scan_id=$(initiate_ssl_scan "$website")
-
-  local status
+  # Check the status of the analysis using the analysis ID
   while true; do
-    status=$(check_ssl_scan_status "$scan_id")
-    if [[ "$status" == "IN_PROGRESS" ]]; then
-      sleep 10s
-    elif [[ "$status" == "READY" ]]; then
+    analysis_status=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$analysis_id" | jq -r '.status')
+    
+    if [ "$analysis_status" = "READY" ]; then
       break
-    else
-      echo "Error: SSL Labs scan failed for $website"
-      return 1
+    elif [ "$analysis_status" = "ERROR" ]; then
+      echo "An error occurred while analyzing $domain."
+      break
     fi
+
+    # Wait for 10 seconds before checking again
+    sleep 10
   done
 
-  # Retrieve the grade from the results
-  local results=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$scan_id")
-  local grade=$(echo "$results" | jq -r '.endpoints[0].grade')
-
-  echo "DEBUG - Raw SSL Labs API response:"
-  echo "$results"
-
-  if [[ "$grade" == "null" ]]; then
-    echo "Error: SSL Labs grade not available for $website"
-    return 1
+  if [ "$analysis_status" = "READY" ]; then
+    # Get the SSL grade for the domain
+    grade=$(curl -s "https://api.ssllabs.com/api/v3/analyze/$analysis_id" | jq -r '.endpoints[0].grade')
+    echo "The SSL grade for $domain is $grade"
   fi
 
-  echo "$grade"
-}
-
-# Read the file containing the list of websites
-websites_file="websites.txt"
-
-while IFS= read -r website
-do
-  ssl_grade=$(get_ssl_labs_grade "$website")
-  echo "SSL Labs grade for $website: $ssl_grade"
-  echo "-------------------------"
-done < "$websites_file"
+  echo
+done < ssl.txt
