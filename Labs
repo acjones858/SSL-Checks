@@ -5,7 +5,7 @@ websites=("example.com" "google.com" "facebook.com")  # Add your desired website
 # Function to check the status of SSL Labs scan
 function check_ssl_scan_status {
   local scan_id=$1
-  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id" | grep -oP '(?<="status": ")[^"]*')
+  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id" | grep -oE '"status":"[^"]+"' | cut -d '"' -f 4)
 
   echo "$status"
 }
@@ -14,7 +14,7 @@ function check_ssl_scan_status {
 function get_ssl_labs_grade {
   local website=$1
   local scan_data=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website")
-  local scan_id=$(echo "$scan_data" | grep -oP '(?<="scanId": ")[^"]*')
+  local scan_id=$(echo "$scan_data" | grep -oE '"scanId":"[^"]+"' | cut -d '"' -f 4)
 
   # Wait until the scan is completed
   while true; do
@@ -26,7 +26,7 @@ function get_ssl_labs_grade {
   done
 
   # Retrieve the grade
-  local grade=$(echo "$scan_data" | grep -oP '(?<="grade": ")[^"]*')
+  local grade=$(echo "$scan_data" | grep -oE '"grade":"[^"]+"' | cut -d '"' -f 4)
 
   echo "$grade"
 }
