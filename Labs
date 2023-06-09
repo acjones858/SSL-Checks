@@ -33,13 +33,18 @@ function get_ssl_labs_grade {
       break
     else
       echo "Error: SSL Labs scan failed for $website"
-      exit 1
+      return 1
     fi
   done
 
   # Retrieve the grade from the results
   local results=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id")
   local grade=$(echo "$results" | jq -r '.endpoints[0].grade')
+
+  if [[ "$grade" == "null" ]]; then
+    echo "Error: SSL Labs grade not available for $website"
+    return 1
+  fi
 
   echo "$grade"
 }
@@ -51,7 +56,9 @@ for website in "${websites[@]}"; do
   # Get the SSL Labs grade
   grade=$(get_ssl_labs_grade "$website")
 
-  # Display the grade
-  echo "Certificate grade: $grade"
+  # Display the grade or error message
+  if [[ $? -eq 0 ]]; then
+    echo "Certificate grade: $grade"
+  fi
   echo ""
 done
