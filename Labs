@@ -2,6 +2,16 @@
 
 websites=("scalematrix.com" "panel.scalematrix.com" "ddc-cabtech.com")  # Add your desired websites here
 
+
+# Function to initiate SSL Labs scan
+function initiate_ssl_scan {
+  local website=$1
+  local scan_data=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website&publish=off" -X POST)
+  local scan_id=$(echo "$scan_data" | jq -r '.scanId')
+
+  echo "$scan_id"
+}
+
 # Function to check the status of SSL Labs scan
 function check_ssl_scan_status {
   local scan_id=$1
@@ -13,16 +23,24 @@ function check_ssl_scan_status {
 # Function to get the SSL Labs grade for a website
 function get_ssl_labs_grade {
   local website=$1
-  local scan_data=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website")
-  local scan_id=$(echo "$scan_data" | jq -r '.scanId')
+  local scan_id=$(initiate_ssl_scan "$website")
 
-  # Wait until the scan is completed
-  while [[ $(check_ssl_scan_status "$scan_id") != "READY" ]]; do
-    sleep 10s
+  local status
+  while true; do
+    status=$(check_ssl_scan_status "$scan_id")
+    if [[ "$status" == "IN_PROGRESS" ]]; then
+      sleep 10s
+    elif [[ "$status" == "READY" ]]; then
+      break
+    else
+      echo "Error: SSL Labs scan failed for $website"
+      exit 1
+    fi
   done
 
-  # Retrieve the grade
-  local grade=$(echo "$scan_data" | jq -r '.endpoints[0].grade')
+  # Retrieve the grade from the results
+  local results=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id")
+  local grade=$(echo "$results" | jq -r '.endpoints[0].grade')
 
   echo "$grade"
 }
@@ -38,4 +56,5 @@ for website in "${websites[@]}"; do
   echo "Certificate grade: $grade"
   echo ""
 done
+
 
