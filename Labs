@@ -1,64 +1,24 @@
 #!/bin/bash
 
-websites=("scalematrix.com" "panel.scalematrix.com" "ddc-cabtech.com")  # Add your desired websites here
+# Define the websites to check
+websites=("scalematrix.com" "panel.scalematrix.com" "ddc-cabtech.com")
 
-# Function to initiate SSL Labs scan
-function initiate_ssl_scan {
+# Function to check SSL certificate grade using SSL Labs API
+function check_ssl_certificate {
   local website=$1
-  local scan_data=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website&publish=off" -X POST)
-  local scan_id=$(echo "$scan_data" | jq -r '.scanId')
-
-  echo "$scan_id"
-}
-
-# Function to check the status of SSL Labs scan
-function check_ssl_scan_status {
-  local scan_id=$1
-  local status=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id" | jq -r '.status')
-
-  echo "$status"
-}
-
-# Function to get the SSL Labs grade for a website
-function get_ssl_labs_grade {
-  local website=$1
-  local scan_id=$(initiate_ssl_scan "$website")
-
-  local status
-  while true; do
-    status=$(check_ssl_scan_status "$scan_id")
-    if [[ "$status" == "IN_PROGRESS" ]]; then
-      sleep 10s
-    elif [[ "$status" == "READY" ]]; then
-      break
-    else
-      echo "Error: SSL Labs scan failed for $website"
-      return 1
-    fi
-  done
-
-  # Retrieve the grade from the results
-  local results=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$scan_id")
-  local grade=$(echo "$results" | jq -r '.endpoints[0].grade')
+  local api_response=$(curl -s "https://api.ssllabs.com/api/v3/analyze?host=$website")
+  local grade=$(echo "$api_response" | jq -r '.endpoints[0].grade')
 
   if [[ "$grade" == "null" ]]; then
     echo "Error: SSL Labs grade not available for $website"
-    return 1
+  else
+    echo "Certificate grade for $website: $grade"
   fi
-
-  echo "$grade"
 }
 
-# Loop through the websites and get SSL Labs grade
+# Loop through the websites and check SSL certificate grade
 for website in "${websites[@]}"; do
   echo "Checking SSL certificate for $website..."
-
-  # Get the SSL Labs grade
-  grade=$(get_ssl_labs_grade "$website")
-
-  # Display the grade or error message
-  if [[ $? -eq 0 ]]; then
-    echo "Certificate grade: $grade"
-  fi
-  echo ""
+  check_ssl_certificate "$website"
+  echo
 done
