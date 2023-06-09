@@ -2,7 +2,6 @@
 
 websites=("scalematrix.com" "panel.scalematrix.com" "ddc-cabtech.com")  # Add your desired websites here
 
-
 # Function to initiate SSL Labs scan
 function initiate_ssl_scan {
   local website=$1
@@ -56,5 +55,3 @@ for website in "${websites[@]}"; do
   echo "Certificate grade: $grade"
   echo ""
 done
-
-
